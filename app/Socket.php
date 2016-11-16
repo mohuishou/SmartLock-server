@@ -24,6 +24,8 @@ class Socket
 
     protected $_log;
 
+    protected $_lock_obj;
+
     public function __construct()
     {
         $this->_sender_io=new SocketIO(2120);
@@ -45,6 +47,9 @@ class Socket
         }
     }
 
+    /**
+     * 连接
+     */
     public function connection(){
         $this->_sender_io->on('connection',function($socket){
             // 当客户端发来登录事件时触发
@@ -120,6 +125,15 @@ class Socket
                 $this->_connection_map[$datas["uid"]] = $datas["lock_id"];
             });
 
+            $_this=$this;
+            Timer::add(1,function () use($socket,$_this){
+                $_this->_lock_obj->status=1;
+                if((time()-$_this->_lock_obj->time)>10){
+                    $_this->_lock_obj->status=0;
+                };
+                $socket->emit("lock_status",$_this->_lock_obj);
+            });
+
             // 当客户端断开连接是触发（一般是关闭网页或者跳转刷新导致）
             $socket->on('disconnect', function () use($socket) {
                 if(!isset($socket->uid))
@@ -136,13 +150,14 @@ class Socket
 
     public function workStart(){
         $this->_sender_io->on('workerStart', function(){
-
-
             //设备已绑定，定时扫描设备状态
         });
     }
 
 
+    /**
+     * 硬件连接服务
+     */
     public function lockServer(){
 
         $worker = new Worker('tcp://0.0.0.0:8484');
@@ -152,10 +167,29 @@ class Socket
             // 设置连接的onMessage回调
             $connection->onMessage = function($connection, $data)
             {
-                var_dump($data);
+                $data=json_decode($data);
+                if(!$data){
+                    $this->debug("数据格式错误！");
+                    return;
+                }
+                $data_validate=["lock_id","is_low_battery","lon","lat","is_stolen"];
+                foreach ($data_validate as $v){
+                    if(!isset($data->$v)){
+                        $this->debug("数据格式有误");
+                        return;
+                    }
+                }
+                $data->time=time();
+                $this->_lock_obj=$data;
                 $connection->send('receive success');
+
             };
         };
+    }
+
+
+    public function debug($info){
+        echo "[".date("Y-m-d h-i-s")."]: ".$info."\r\n ";
     }
 
 
