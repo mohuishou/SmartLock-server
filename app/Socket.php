@@ -141,7 +141,7 @@ class Socket
             });
 
             //设置定时器
-            Timer::add(1,function () use($socket) {
+            Timer::add(4,function () use($socket) {
                 //缓存文件是否存在
                 if(file_exists($this->_tmp_path)){
                     $data=@file_get_contents($this->_tmp_path);
@@ -161,12 +161,12 @@ class Socket
                 if(!empty($this->_old_data)){
                     //判断两个数组差集是否为空
                     if($this->_old_data==$data){
-                        $this->debug("数据相同");
+//                        $this->debug("数据相同");
                         return;
                     }
                 }
                 $this->_old_data=$data;
-                $this->debug("数据已发送");
+//                $this->debug("数据已发送");
                 $socket->emit("lock_status",$data);
             });
 
