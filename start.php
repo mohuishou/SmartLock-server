@@ -8,5 +8,15 @@
 require_once __DIR__ . '/vendor/autoload.php';
 require_once __DIR__ ."/database/start.php";
 
+$global_data_server=new \App\GlobalData();
+$global_data_server->server();
+
 $socket=new \App\Socket();
 $socket->start();
+
+
+
+if(!defined('GLOBAL_START'))
+{
+    \Workerman\Worker::runAll();
+}

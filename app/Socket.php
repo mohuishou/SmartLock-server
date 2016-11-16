@@ -6,17 +6,26 @@
  * Time: 17:04
  */
 
-
 namespace App;
 use App\Models\Lock;
 use App\Models\User;
+use Channel\Client;
 use Workerman\Worker;
-use Workerman\WebServer;
 use Workerman\Lib\Timer;
 use PHPSocketIO\SocketIO;
 
 class Socket
 {
+    /**
+     * 缓存文件路径
+     * @var string
+     */
+    protected $_tmp_path=__DIR__."/../tmp/tmp.json";
+
+    /**
+     * @var
+     */
+    protected $_old_data;
 
     protected $_sender_io;
 
@@ -26,14 +35,15 @@ class Socket
 
     protected $_lock_obj;
 
+    protected $_global;
+
     public function __construct()
     {
         $this->_sender_io=new SocketIO(2120);
-
     }
 
     public  function start(){
-
+        $this->globalData();
         //建立连接
         $this->connection();
 
@@ -41,10 +51,13 @@ class Socket
         $this->workStart();
 
         $this->lockServer();
-        if(!defined('GLOBAL_START'))
-        {
-            Worker::runAll();
-        }
+
+    }
+
+    public function globalData(){
+//        $this->_global=new Client("127.0.0.1",8400);
+        global $global;
+        $global=new Client("127.0.0.1",8400);
     }
 
     /**
@@ -63,7 +76,9 @@ class Socket
                     $user=User::firstOrCreate(["phone"=>$phone]);
                     $uid=$user->id;
                 }catch (\Exception $e){
-                    $this->_sender_io->emit("error","数据库错误".$e->getMessage());
+                    $this->_sender_io->emit("error","数据库错误");
+                    $this->debug("数据库错误".$e->getMessage());
+                    return;
                 }
 
 
@@ -81,7 +96,7 @@ class Socket
                     $this->_connection_map[$uid] = $user->lock_id;
                 }
 
-                echo "user:".$user->phone."connection \r\n ";
+                $this->debug("user:".$user->phone."connection");
 
 
                 // 将这个连接加入到uid分组，方便针对uid推送数据
@@ -125,13 +140,34 @@ class Socket
                 $this->_connection_map[$datas["uid"]] = $datas["lock_id"];
             });
 
-            $_this=$this;
-            Timer::add(1,function () use($socket,$_this){
-                $_this->_lock_obj->status=1;
-                if((time()-$_this->_lock_obj->time)>10){
-                    $_this->_lock_obj->status=0;
+            //设置定时器
+            Timer::add(1,function () use($socket) {
+                //缓存文件是否存在
+                if(file_exists($this->_tmp_path)){
+                    $data=@file_get_contents($this->_tmp_path);
+                }else{
+                    return;
+                }
+                $data=json_decode($data);
+                if(!$data){
+                    return;
+                }
+                $data->status=1;
+                if((time()-$data->time)>10){
+                    $data->status=0;
                 };
-                $socket->emit("lock_status",$_this->_lock_obj);
+
+                //与上一次的数据进行比较，如果没有变化就不进行广播了
+                if(!empty($this->_old_data)){
+                    //判断两个数组差集是否为空
+                    if($this->_old_data==$data){
+                        $this->debug("数据相同");
+                        return;
+                    }
+                }
+                $this->_old_data=$data;
+                $this->debug("数据已发送");
+                $socket->emit("lock_status",$data);
             });
 
             // 当客户端断开连接是触发（一般是关闭网页或者跳转刷新导致）
@@ -151,6 +187,8 @@ class Socket
     public function workStart(){
         $this->_sender_io->on('workerStart', function(){
             //设备已绑定，定时扫描设备状态
+            global $global_data;
+            $global_data=new Client("127.0.0.1",8400);
         });
     }
 
@@ -161,13 +199,18 @@ class Socket
     public function lockServer(){
 
         $worker = new Worker('tcp://0.0.0.0:8484');
+
+        $worker->onWorkerStart=function (){
+            global $global_data;
+            $global_data=new Client("127.0.0.1",8400);
+        };
         $worker->onConnect = function($connection)
         {
             echo $connection->id;
             // 设置连接的onMessage回调
             $connection->onMessage = function($connection, $data)
             {
-                $data=json_decode($data);
+                $data=json_decode(trim($data));
                 if(!$data){
                     $this->debug("数据格式错误！");
                     return;
@@ -180,7 +223,7 @@ class Socket
                     }
                 }
                 $data->time=time();
-                $this->_lock_obj=$data;
+                @file_put_contents($this->_tmp_path,json_encode($data));
                 $connection->send('receive success');
 
             };
