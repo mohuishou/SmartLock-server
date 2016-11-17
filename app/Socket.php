@@ -96,27 +96,30 @@ class Socket
                 //返回用户信息
                 $socket->emit('user',$user);
 
-                //返回用户设备情况
-                if(file_exists($this->_tmp_path."/".$this->_connection_map[$uid]."-tmp.json")){
-                    $data=@file_get_contents($this->_tmp_path."/".$this->_connection_map[$uid]."-tmp.json");
-                }else{
-                    $data='{"lock_id": "12345","is_stolen": "0","is_low_battery": "0","lon": "104.06","lat": "30.67","time":0}';
+                if(!isset($this->_time_id_map[$uid])){
+                    //返回用户设备情况
+                    if(file_exists($this->_tmp_path."/".$this->_connection_map[$uid]."-tmp.json")){
+                        $data=@file_get_contents($this->_tmp_path."/".$this->_connection_map[$uid]."-tmp.json");
+                    }else{
+                        $data='{"lock_id": "12345","is_stolen": "0","is_low_battery": "0","lon": "104.06","lat": "30.67","time":0}';
+                        $data=json_decode($data);
+                        $data->status=0;
+                        $this->_old_data=$data;
+                        $socket->emit("lock_status",$data);
+                        return;
+                    }
                     $data=json_decode($data);
-                    $data->status=0;
+                    if(!$data){
+                        return;
+                    }
+                    $data->status=1;
+                    if((time()-$data->time)>10){
+                        $data->status=0;
+                    };
                     $this->_old_data=$data;
                     $socket->emit("lock_status",$data);
-                    return;
                 }
-                $data=json_decode($data);
-                if(!$data){
-                    return;
-                }
-                $data->status=1;
-                if((time()-$data->time)>10){
-                    $data->status=0;
-                };
-                $this->_old_data=$data;
-                $socket->emit("lock_status",$data);
+
 
             });
             //绑定设备
@@ -197,6 +200,7 @@ class Socket
                 if(isset($this->_connection_map[$socket->uid]))
                     unset($this->_connection_map[$socket->uid]);
                 if(isset($this->_time_id_map[$socket->uid])){
+                    $this->debug("定时器".$socket->uid."已关闭");
                     Timer::del($this->_time_id_map[$socket->uid]);
                 }
             });
