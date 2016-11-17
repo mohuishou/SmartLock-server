@@ -5,16 +5,7 @@
  * Date: 2016/11/14 0014
  * Time: 18:50
  */
-$database = [
-    'driver' => 'mysql',
-    'host' => "localhost",
-    'database' => "smart_lock",
-    'username' => "mohuishou",
-    'password' => "mohuishou",
-    'charset' => 'utf8',
-    'collation' => 'utf8_unicode_ci',
-    'prefix' => "",
-];
+$database = require_once "config.php";
 
 use Illuminate\Container\Container;
 use Illuminate\Database\Capsule\Manager as Capsule;
