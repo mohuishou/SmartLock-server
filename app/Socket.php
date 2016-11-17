@@ -117,6 +117,7 @@ class Socket
                         $data->status=0;
                     };
                     $this->_old_data=$data;
+                    $this->debug("初始化数据已发送!");
                     $socket->emit("lock_status",$data);
                 }
 
@@ -196,13 +197,14 @@ class Socket
                     return;
                 }
                 $user=User::find($socket->uid);
-                echo "user: ".$user->phone."disconnect \r\n ";
-                if(isset($this->_connection_map[$socket->uid]))
-                    unset($this->_connection_map[$socket->uid]);
+                $this->debug("user: ".$user->phone."disconnect ");
                 if(isset($this->_time_id_map[$socket->uid])){
                     $this->debug("定时器".$socket->uid."已关闭");
                     Timer::del($this->_time_id_map[$socket->uid]);
                 }
+                if(isset($this->_connection_map[$socket->uid]))
+                    unset($this->_connection_map[$socket->uid]);
+
             });
         });
     }
