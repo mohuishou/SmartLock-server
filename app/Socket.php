@@ -97,9 +97,14 @@ class Socket
                 $socket->emit('user',$user);
 
                 //返回用户设备情况
-                if(file_exists($this->_tmp_path)){
-                    $data=@file_get_contents($this->_tmp_path);
+                if(file_exists($this->_tmp_path."/".$this->_connection_map[$socket->uid]."-tmp.json")){
+                    $data=@file_get_contents($this->_tmp_path."/".$this->_connection_map[$socket->uid]."-tmp.json");
                 }else{
+                    $data='{"lock_id": "12345","is_stolen": "0","is_low_battery": "0","lon": "104.06","lat": "30.67"}';
+                    $data=json_decode($data);
+                    $data->status=0;
+                    $this->_old_data=$data;
+                    $socket->emit("lock_status",$data);
                     return;
                 }
                 $data=json_decode($data);
