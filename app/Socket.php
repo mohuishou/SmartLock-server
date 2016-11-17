@@ -95,7 +95,7 @@ class Socket
 
                 //返回用户信息
                 $socket->emit('user',$user);
-
+                print_r($this->_time_id_map);
                 if(!isset($this->_time_id_map[$uid])){
                     //返回用户设备情况
                     if(file_exists($this->_tmp_path."/".$this->_connection_map[$uid]."-tmp.json")){
@@ -125,8 +125,6 @@ class Socket
             });
             //绑定设备
             $socket->on("bind",function ($datas) use ($socket){
-
-                print_r($socket->uid);
                 try{
                     $lock=Lock::where("lock_id",$datas["lock_id"])
                         ->where("lock_key",$datas["lock_key"])
@@ -198,6 +196,7 @@ class Socket
                 }
                 $user=User::find($socket->uid);
                 $this->debug("user: ".$user->phone."disconnect ");
+                print_r($this->_time_id_map);
                 if(isset($this->_time_id_map[$socket->uid])){
                     $this->debug("定时器".$socket->uid."已关闭");
                     Timer::del($this->_time_id_map[$socket->uid]);
