@@ -138,6 +138,7 @@ class Socket
                         $data->status=0;
                         $this->_old_data=$data;
                         $socket->emit("lock_status",$data);
+                        $this->debug("初始化数据已发送!文件不存在");
                         return;
                     }
                     $data=json_decode($data);
@@ -196,9 +197,9 @@ class Socket
                 }
                 $user=User::find($socket->uid);
                 $this->debug("user: ".$user->phone."disconnect ");
-                print_r($this->_time_id_map);
                 if(isset($this->_time_id_map[$socket->uid])){
                     $this->debug("定时器".$socket->uid."已关闭");
+                    unset($this->_time_id_map[$socket->uid]);
                     Timer::del($this->_time_id_map[$socket->uid]);
                 }
                 if(isset($this->_connection_map[$socket->uid]))
