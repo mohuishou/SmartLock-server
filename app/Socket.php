@@ -151,6 +151,7 @@ class Socket
                     };
                     $this->_old_data=$data;
                     $this->debug("初始化数据已发送!");
+                    print_r($data);
                     $socket->emit("lock_status",$data);
                 }
             });
