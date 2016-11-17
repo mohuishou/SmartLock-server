@@ -20,12 +20,14 @@ class Socket
      * 缓存文件路径
      * @var string
      */
-    protected $_tmp_path=__DIR__."/../tmp/tmp.json";
+    protected $_tmp_path=__DIR__."/../tmp";
 
     /**
      * @var
      */
     protected $_old_data;
+
+    protected $_time_id_map;
 
     protected $_sender_io;
 
@@ -86,8 +88,6 @@ class Socket
                 }
 
                 $this->debug("user:".$user->phone."connection");
-
-
                 // 将这个连接加入到uid分组，方便针对uid推送数据
                 $socket->join($uid);
                 $socket->uid = $uid;
@@ -147,10 +147,12 @@ class Socket
             });
 
             //设置定时器
-            Timer::add(4,function () use($socket) {
+            $this->_time_id_map[$socket->uid]=Timer::add(4,function () use($socket) {
                 //缓存文件是否存在
-                if(file_exists($this->_tmp_path)){
-                    $data=@file_get_contents($this->_tmp_path);
+                if(!isset($this->_connection_map[$socket->uid]))
+                    return;
+                if(file_exists($this->_tmp_path."/".$this->_connection_map[$socket->uid]."-tmp.json")){
+                    $data=@file_get_contents($this->_tmp_path."/".$this->_connection_map[$socket->uid]."-tmp.json");
                 }else{
                     return;
                 }
@@ -186,6 +188,9 @@ class Socket
                 echo "user: ".$user->phone."disconnect \r\n ";
                 if(isset($this->_connection_map[$socket->uid]))
                     unset($this->_connection_map[$socket->uid]);
+                if(isset($this->_time_id_map[$socket->uid])){
+                    Timer::del($this->_time_id_map[$socket->uid]);
+                }
             });
         });
     }
@@ -217,7 +222,7 @@ class Socket
                     }
                 }
                 $data->time=time();
-                @file_put_contents($this->_tmp_path,json_encode($data));
+                @file_put_contents($this->_tmp_path."/".$data->lock_id."-tmp.json",json_encode($data));
                 $connection->send('receive success');
             };
         };
