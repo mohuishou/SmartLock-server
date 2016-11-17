@@ -97,6 +97,38 @@ class Socket
                 $socket->emit('user',$user);
                 print_r($this->_time_id_map);
                 if(!isset($this->_time_id_map[$uid])){
+
+                    //设置定时器
+                    $this->_time_id_map[$uid]=Timer::add(3,function () use($socket) {
+                        //缓存文件是否存在
+                        if(!isset($this->_connection_map[$socket->uid]))
+                            return;
+                        if(file_exists($this->_tmp_path."/".$this->_connection_map[$socket->uid]."-tmp.json")){
+                            $data=@file_get_contents($this->_tmp_path."/".$this->_connection_map[$socket->uid]."-tmp.json");
+                        }else{
+                            return;
+                        }
+                        $data=json_decode($data);
+                        if(!$data){
+                            return;
+                        }
+                        $data->status=1;
+                        if((time()-$data->time)>12){
+                            $data->status=0;
+                        };
+
+                        //与上一次的数据进行比较，如果没有变化就不进行广播了
+                        if(!empty($this->_old_data)){
+                            //判断两个数组差集是否为空
+                            if($this->_old_data==$data){
+                                $this->debug("数据相同");
+                                return;
+                            }
+                        }
+                        $this->_old_data=$data;
+                        $this->debug("数据已发送");
+                        $socket->emit("lock_status",$data);
+                    });
                     //返回用户设备情况
                     if(file_exists($this->_tmp_path."/".$this->_connection_map[$uid]."-tmp.json")){
                         $data=@file_get_contents($this->_tmp_path."/".$this->_connection_map[$uid]."-tmp.json");
@@ -120,8 +152,6 @@ class Socket
                     $this->debug("初始化数据已发送!");
                     $socket->emit("lock_status",$data);
                 }
-
-
             });
             //绑定设备
             $socket->on("bind",function ($datas) use ($socket){
@@ -156,37 +186,7 @@ class Socket
                 if(isset($data["lock_id"]))
                     @file_put_contents($this->_tmp_path."/".$data["lock_id"]."-open.json",1);
             });
-            //设置定时器
-            $this->_time_id_map[$socket->uid]=Timer::add(3,function () use($socket) {
-                //缓存文件是否存在
-                if(!isset($this->_connection_map[$socket->uid]))
-                    return;
-                if(file_exists($this->_tmp_path."/".$this->_connection_map[$socket->uid]."-tmp.json")){
-                    $data=@file_get_contents($this->_tmp_path."/".$this->_connection_map[$socket->uid]."-tmp.json");
-                }else{
-                    return;
-                }
-                $data=json_decode($data);
-                if(!$data){
-                    return;
-                }
-                $data->status=1;
-                if((time()-$data->time)>12){
-                    $data->status=0;
-                };
 
-                //与上一次的数据进行比较，如果没有变化就不进行广播了
-                if(!empty($this->_old_data)){
-                    //判断两个数组差集是否为空
-                    if($this->_old_data==$data){
-                        $this->debug("数据相同");
-                        return;
-                    }
-                }
-                $this->_old_data=$data;
-                $this->debug("数据已发送");
-                $socket->emit("lock_status",$data);
-            });
 
             // 当客户端断开连接是触发（一般是关闭网页或者跳转刷新导致）
             $socket->on('disconnect', function () use($socket) {
