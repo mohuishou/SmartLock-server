@@ -33,6 +33,7 @@ class Socket
 
     protected $_connection_map;
 
+    protected $_connection_lock_map;
     protected $_log;
 
     protected $_lock_obj;
@@ -113,8 +114,6 @@ class Socket
                 $socket->emit("lock_status",$data);
 
             });
-
-
             //绑定设备
             $socket->on("bind",function ($datas) use ($socket){
 
@@ -146,8 +145,12 @@ class Socket
                 $this->_connection_map[$datas["uid"]] = $datas["lock_id"];
             });
 
+            $socket->on("open_lock",function ($data) use ($socket){
+                if(isset($data["lock_id"]))
+                    @file_put_contents($this->_tmp_path."/".$data["lock_id"]."-open.json",1);
+            });
             //设置定时器
-            $this->_time_id_map[$socket->uid]=Timer::add(4,function () use($socket) {
+            $this->_time_id_map[$socket->uid]=Timer::add(3,function () use($socket) {
                 //缓存文件是否存在
                 if(!isset($this->_connection_map[$socket->uid]))
                     return;
@@ -161,7 +164,7 @@ class Socket
                     return;
                 }
                 $data->status=1;
-                if((time()-$data->time)>10){
+                if((time()-$data->time)>12){
                     $data->status=0;
                 };
 
@@ -199,13 +202,15 @@ class Socket
      * 硬件连接服务
      */
     public function lockServer(){
+        $connection_map=[];
+        $time_map=[];
 
         $worker = new Worker('tcp://0.0.0.0:8401');
-        $worker->onConnect = function($connection)
+        $worker->onConnect = function($connection) use ($connection_map,$time_map)
         {
-            echo $connection->id;
+            $this->debug("设备".$connection->id."已连接");
             // 设置连接的onMessage回调
-            $connection->onMessage = function($connection, $data)
+            $connection->onMessage = function($connection, $data) use($connection_map)
             {
                 $datas=json_decode(trim($data));
                 if(!$datas){
@@ -222,8 +227,34 @@ class Socket
                     }
                 }
                 $data->time=time();
+                $this->_connection_lock_map[$connection->id]=$data->lock_id;
                 @file_put_contents($this->_tmp_path."/".$data->lock_id."-tmp.json",json_encode($data));
                 $connection->send('receive success');
+            };
+
+            $time_map[$connection->id]=Timer::add(3,function () use ($connection,$connection_map){
+                $connection_map=$this->_connection_lock_map;
+                if(!isset($connection_map[$connection->id])){
+                    return;
+                }
+                $file_path=$this->_tmp_path."/".$connection_map[$connection->id]."-open.json";
+                if(!file_exists($file_path)){
+                    return;
+                }
+                $data=@file_get_contents($file_path);
+                if($data==1){
+                    $connection->send('1');
+                    @unlink($file_path);
+                }
+            });
+
+            $connection->onClose = function($connection) use($time_map)
+            {
+                $this->debug("设备".$connection->id."已断开");
+                if(isset($time_map[$connection->id])){
+                    Timer::del($time_map[$connection->id]);
+                    $this->debug("关闭设备".$connection->id."定时器");
+                }
             };
         };
     }
