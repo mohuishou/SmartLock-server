@@ -39,26 +39,18 @@ class Socket
 
     public function __construct()
     {
-        $this->_sender_io=new SocketIO(2120);
+        $this->_sender_io=new SocketIO(8400);
     }
 
     public  function start(){
-        $this->globalData();
         //建立连接
         $this->connection();
 
-        //连接建立之后监听
-        $this->workStart();
 
         $this->lockServer();
 
     }
 
-    public function globalData(){
-//        $this->_global=new Client("127.0.0.1",8400);
-        global $global;
-        $global=new Client("127.0.0.1",8400);
-    }
 
     /**
      * 连接
@@ -81,9 +73,6 @@ class Socket
                     return;
                 }
 
-
-
-
                 // 更新对应uid的在线数据
                 $uid = (string)$uid;
                 if(!isset($this->_connection_map[$uid]))
@@ -103,8 +92,25 @@ class Socket
                 $socket->join($uid);
                 $socket->uid = $uid;
 
-                //返回用户设备情况
+                //返回用户信息
                 $socket->emit('user',$user);
+
+                //返回用户设备情况
+                if(file_exists($this->_tmp_path)){
+                    $data=@file_get_contents($this->_tmp_path);
+                }else{
+                    return;
+                }
+                $data=json_decode($data);
+                if(!$data){
+                    return;
+                }
+                $data->status=1;
+                if((time()-$data->time)>10){
+                    $data->status=0;
+                };
+                $this->_old_data=$data;
+                $socket->emit("lock_status",$data);
 
             });
 
@@ -161,12 +167,12 @@ class Socket
                 if(!empty($this->_old_data)){
                     //判断两个数组差集是否为空
                     if($this->_old_data==$data){
-//                        $this->debug("数据相同");
+                        $this->debug("数据相同");
                         return;
                     }
                 }
                 $this->_old_data=$data;
-//                $this->debug("数据已发送");
+                $this->debug("数据已发送");
                 $socket->emit("lock_status",$data);
             });
 
@@ -184,26 +190,12 @@ class Socket
         });
     }
 
-    public function workStart(){
-        $this->_sender_io->on('workerStart', function(){
-            //设备已绑定，定时扫描设备状态
-            global $global_data;
-            $global_data=new Client("127.0.0.1",8400);
-        });
-    }
-
-
     /**
      * 硬件连接服务
      */
     public function lockServer(){
 
-        $worker = new Worker('tcp://0.0.0.0:8484');
-
-        $worker->onWorkerStart=function (){
-            global $global_data;
-            $global_data=new Client("127.0.0.1",8400);
-        };
+        $worker = new Worker('tcp://0.0.0.0:8401');
         $worker->onConnect = function($connection)
         {
             echo $connection->id;
@@ -225,7 +217,6 @@ class Socket
                 $data->time=time();
                 @file_put_contents($this->_tmp_path,json_encode($data));
                 $connection->send('receive success');
-
             };
         };
     }
