@@ -202,11 +202,13 @@ class Socket
             // 设置连接的onMessage回调
             $connection->onMessage = function($connection, $data)
             {
-                $data=json_decode(trim($data));
-                if(!$data){
+                $datas=json_decode(trim($data));
+                if(!$datas){
                     $this->debug("数据格式错误！");
+                    print_r($data);
                     return;
                 }
+                $data=$datas;
                 $data_validate=["lock_id","is_low_battery","lon","lat","is_stolen"];
                 foreach ($data_validate as $v){
                     if(!isset($data->$v)){
