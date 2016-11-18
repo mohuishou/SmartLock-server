@@ -103,7 +103,7 @@ class AppServer{
                 $this->_connection_map[$uid] = 0;
             }
 
-            //
+            //设置对应的设备id
             if(isset($user->lock_id)&&!empty($user->lock_id)){
                 $this->_connection_map[$uid] = $user->lock_id;
             }
@@ -116,61 +116,78 @@ class AppServer{
             //返回用户信息
             $socket->emit('user',$user);
             if(!isset($this->_time_id_map[$uid])){
-
-                //设置定时器
-                $this->_time_id_map[$uid]=Timer::add(3,function () use($socket) {
-                    //缓存文件是否存在
-                    if(!isset($this->_connection_map[$socket->uid]))
-                        return;
-                    if(file_exists($this->_tmp_path."/".$this->_connection_map[$socket->uid]."-tmp.json")){
-                        $data=@file_get_contents($this->_tmp_path."/".$this->_connection_map[$socket->uid]."-tmp.json");
-                    }else{
-                        return;
-                    }
-                    $data=json_decode($data);
-                    if(!$data){
-                        return;
-                    }
-                    $data->status=1;
-                    if((time()-$data->time)>12){
-                        $data->status=0;
-                    };
-
-                    //与上一次的数据进行比较，如果没有变化就不进行广播了
-                    if(!empty($this->_old_data)){
-                        //判断两个数组差集是否为空
-                        if($this->_old_data==$data){
-                            return;
-                        }
-                    }
-                    $this->_old_data=$data;
-                    $socket->emit("lock_status",$data);
-                });
-                //返回用户设备情况
-                if(file_exists($this->_tmp_path."/".$this->_connection_map[$uid]."-tmp.json")){
-                    $data=@file_get_contents($this->_tmp_path."/".$this->_connection_map[$uid]."-tmp.json");
-                }else{
-                    $data='{"lock_id": "12345","is_stolen": "0","is_low_battery": "0","lon": "104.06","lat": "30.67","time":0}';
-                    $data=json_decode($data);
-                    $data->status=0;
-                    $this->_old_data=$data;
-                    $socket->emit("lock_status",$data);
-                    $this->debug("初始化数据已发送!文件不存在");
-                    return;
-                }
-                $data=json_decode($data);
-                if(!$data){
-                    return;
-                }
-                $data->status=1;
-                if((time()-$data->time)>10){
-                    $data->status=0;
-                };
-                $this->_old_data=$data;
-                $this->debug("初始化数据已发送!");
-                $socket->emit("lock_status",$data);
+                $this->lockStatusTimer($socket);
+                $this->lockStatusInit($socket);
             }
         });
+    }
+
+    /**
+     * 定时获取用户设备状态
+     * @author mohuishou<1@lailin.xyz>
+     * @param $socket
+     */
+    public function lockStatusTimer($socket){
+        //设置定时器
+        $this->_time_id_map[$socket->uid]=Timer::add(3,function () use($socket) {
+            //缓存文件是否存在
+            if(!isset($this->_connection_map[$socket->uid]))
+                return;
+            if(file_exists($this->_tmp_path."/".$this->_connection_map[$socket->uid]."-tmp.json")){
+                $data=@file_get_contents($this->_tmp_path."/".$this->_connection_map[$socket->uid]."-tmp.json");
+            }else{
+                return;
+            }
+            $data=json_decode($data);
+            if(!$data){
+                return;
+            }
+            $data->status=1;
+            if((time()-$data->time)>12){
+                $data->status=0;
+            };
+
+            //与上一次的数据进行比较，如果没有变化就不进行广播了
+            if(!empty($this->_old_data)){
+                //判断两个数组差集是否为空
+                if($this->_old_data==$data){
+                    return;
+                }
+            }
+            $this->_old_data=$data;
+            $socket->emit("lock_status",$data);
+        });
+    }
+
+    /**
+     * 设备数据初始化
+     * @author mohuishou<1@lailin.xyz>
+     * @param $socket
+     */
+    public function lockStatusInit($socket){
+        //返回用户设备情况
+        if(file_exists($this->_tmp_path."/".$this->_connection_map[$socket->uid]."-tmp.json")){
+            $data=@file_get_contents($this->_tmp_path."/".$this->_connection_map[$socket->uid]."-tmp.json");
+        }else{
+            $data='{"lock_id": "12345","is_stolen": "0","is_low_battery": "0","lon": "104.06","lat": "30.67","time":0}';
+            $data=json_decode($data);
+            $data->status=0;
+            $this->_old_data=$data;
+            $socket->emit("lock_status",$data);
+            $this->debug("初始化数据已发送!文件不存在");
+            return;
+        }
+        $data=json_decode($data);
+        if(!$data){
+            return;
+        }
+        $data->status=1;
+        if((time()-$data->time)>10){
+            $data->status=0;
+        };
+        $this->_old_data=$data;
+        $this->debug("初始化数据已发送!");
+        $socket->emit("lock_status",$data);
     }
 
     /**
@@ -246,6 +263,11 @@ class AppServer{
         });
     }
 
+    /**
+     * 输出调试信息
+     * @author mohuishou<1@lailin.xyz>
+     * @param $info
+     */
     public function debug($info){
         echo "[AppServer][".date("Y-m-d h-i-s")."]: ".$info."\r\n ";
     }
