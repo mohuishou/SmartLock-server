@@ -140,12 +140,10 @@ class AppServer{
                     if(!empty($this->_old_data)){
                         //判断两个数组差集是否为空
                         if($this->_old_data==$data){
-                            $this->debug("数据相同");
                             return;
                         }
                     }
                     $this->_old_data=$data;
-                    $this->debug("数据已发送");
                     $socket->emit("lock_status",$data);
                 });
                 //返回用户设备情况

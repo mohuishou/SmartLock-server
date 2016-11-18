@@ -131,7 +131,6 @@ class LockServer
             // 运行10次后销毁当前定时器
             if($count++ >= 10)
             {
-                echo "Timer::del($timer_id)\n";
                 Timer::del($timer_id);
                 @unlink($file_path);
             }
