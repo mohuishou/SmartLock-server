@@ -197,9 +197,9 @@ class Socket
                 $user=User::find($socket->uid);
                 $this->debug("user: ".$user->phone."disconnect ");
                 if(isset($this->_time_id_map[$socket->uid])){
+                    Timer::del($this->_time_id_map[$socket->uid]);
                     $this->debug("定时器".$socket->uid."已关闭");
                     unset($this->_time_id_map[$socket->uid]);
-                    Timer::del($this->_time_id_map[$socket->uid]);
                 }
                 if(isset($this->_connection_map[$socket->uid]))
                     unset($this->_connection_map[$socket->uid]);
@@ -253,9 +253,25 @@ class Socket
                 }
                 $data=@file_get_contents($file_path);
                 if($data==1){
-                    $connection->send('1');
-                    @unlink($file_path);
+//                    $connection->send('1');
+//                    @unlink($file_path);
                 }
+
+                // 计数
+                $count = 1;
+                // 要想$timer_id能正确传递到回调函数内部，$timer_id前面必须加地址符 &
+                $timer_id = Timer::add(0.3, function()use(&$timer_id, &$count,$file_path,$connection)
+                {
+                    echo "Timer run $count\n";
+                    $connection->send('1');
+                    // 运行10次后销毁当前定时器
+                    if($count++ >= 10)
+                    {
+                        echo "Timer::del($timer_id)\n";
+                        Timer::del($timer_id);
+                        @unlink($file_path);
+                    }
+                });
             });
 
             $connection->onClose = function($connection) use($time_map)
