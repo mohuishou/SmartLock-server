@@ -9,10 +9,11 @@ require_once __DIR__ . '/vendor/autoload.php';
 require_once __DIR__ ."/database/start.php";
 
 
-$socket=new \App\Socket();
-$socket->start();
+$app_server=new \App\AppServer();
+$app_server->start();
 
-
+$lock_server=new \App\LockServer();
+$lock_server->start();
 
 if(!defined('GLOBAL_START'))
 {

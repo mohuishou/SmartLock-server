@@ -7,6 +7,8 @@
  */
 
 namespace App;
+
+
 use App\Models\Lock;
 use App\Models\User;
 use Channel\Client;
