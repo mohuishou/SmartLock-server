@@ -263,7 +263,7 @@ class Socket
                 $timer_id = Timer::add(0.3, function()use(&$timer_id, &$count,$file_path,$connection)
                 {
                     echo "Timer run $count\n";
-                    $connection->send('1');
+                    $connection->send('11111');
                     // 运行10次后销毁当前定时器
                     if($count++ >= 10)
                     {
