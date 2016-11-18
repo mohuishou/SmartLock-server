@@ -102,7 +102,6 @@ class LockServer
         $time_map=$this->_time_map;
         $time_map[$connection->id]=Timer::add(3,function () use ($connection){
             $connection_map=$this->_connection_map;
-            $connection_map=$this->_connection_lock_map;
             if(!isset($connection_map[$connection->id])){
                 return;
             }
