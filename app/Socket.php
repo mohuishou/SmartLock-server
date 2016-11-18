@@ -253,25 +253,21 @@ class Socket
                 }
                 $data=@file_get_contents($file_path);
                 if($data==1){
-//                    $connection->send('1');
-//                    @unlink($file_path);
-                }
-
-                // 计数
-                $count = 1;
-                // 要想$timer_id能正确传递到回调函数内部，$timer_id前面必须加地址符 &
-                $timer_id = Timer::add(0.3, function()use(&$timer_id, &$count,$file_path,$connection)
-                {
-                    echo "Timer run $count\n";
-                    $connection->send('11111');
-                    // 运行10次后销毁当前定时器
-                    if($count++ >= 10)
+                    // 计数
+                    $count = 1;
+                    // 要想$timer_id能正确传递到回调函数内部，$timer_id前面必须加地址符 &
+                    $timer_id = Timer::add(0.3, function()use(&$timer_id, &$count,$file_path,$connection)
                     {
-                        echo "Timer::del($timer_id)\n";
-                        Timer::del($timer_id);
-                        @unlink($file_path);
-                    }
-                });
+                        $connection->send('11111');
+                        // 运行10次后销毁当前定时器
+                        if($count++ >= 10)
+                        {
+                            echo "Timer::del($timer_id)\n";
+                            Timer::del($timer_id);
+                            @unlink($file_path);
+                        }
+                    });
+                }
             });
 
             $connection->onClose = function($connection) use($time_map)
